@@ -5,7 +5,7 @@ import os.path
 from nltk.stem import PorterStemmer
 
 
-class Preprocessor(object):
+class Analyzer(object):
     """Class for turning a stream into terms."""
 
     def __init__(self, stopwords=None):
@@ -51,19 +51,24 @@ class Index(object):
         """Creates the inverted index and title index from the
         given collection file.
         """
-        # TODO: Implement BSBI
-        # https://nlp.stanford.edu/IR-book/html/htmledition/blocked-sort-based-indexing-1.html
         assert not os.path.exists(self.index_path)
         assert not os.path.exists(self.titles_path)
         with open(collection_path) as f:
             # TODO: What if the file won't fit in memory?
             s = f.read()
-        preprocessor = Preprocessor(self.stopwords)
-        for i, page in enumerate(self.parse(s)):
+        self.parse(s)
+        self.invert()
+
+    def parse(self, s):
+        analyzer = Analyzer(self.stopwords)
+        for i, page in enumerate(self.parse_xml(s)):
+            # TODO: Implement a better form of logging
             print('Indexing doc {}'.format(i))
             stream = page['stream']
-            terms = preprocessor.terms(stream)
+            terms = analyzer.terms(stream)
             with open(self.titles_path, 'a') as title_file:
+                # TODO: Implement BSBI
+                # https://nlp.stanford.edu/IR-book/html/htmledition/blocked-sort-based-indexing-1.html
                 json.dump({'id': page['id'], 'title': page['title']},
                           title_file)
                 title_file.write('\n')
@@ -74,7 +79,7 @@ class Index(object):
                     index_file.write('\n')
             print('Indexed doc {}'.format(i))
 
-    def parse(self, s):
+    def parse_xml(self, s):
         while s.find('<page>') > 0:
             start_i = s.find('<id>')
             end_i = s.find('</id>')
@@ -92,6 +97,17 @@ class Index(object):
             yield {'id': id, 'title': title, 'stream': stream}
             s = s[s.find('</page>') + 1:]  # Go to the next page
 
+    def invert(self):
+        index = [] # TODO: What if the index doesn't fit in memory?
+        with open(self.index_path) as index_file:
+            for line in index_file:
+                term_obj = json.loads(line)
+                index.append(term_obj)
+        index.sort(key=lambda x: x['term'])
+        with open(self.index_path, 'w') as index_file:
+            for obj in index:
+                index_file.write('{}\n'.format(json.dumps(obj)))
+
     def query(self, qs: str):
         """Searches the inverted index given a query string.
         """
@@ -101,7 +117,7 @@ class Index(object):
 
 class Query(object):
     def __init__(self, query_string: str, index: Index):
-        self.query_terms = Preprocessor(stopwords=index.stopwords).terms(query_string)
+        self.query_terms = Analyzer(stopwords=index.stopwords).terms(query_string)
         self.index = index
 
     def matches(self):
@@ -167,17 +183,17 @@ class QueryFactory(object):
         elif len(words) > 1:
             return FreeTextQuery(qs, index)
         else:
-            raise ValueError('The query string cannot be parsed.')
+            raise ValueError('The query string given is not supported.')
 
 
 if __name__ == '__main__':
-    # index = Index(stopword_path='data/part1/stopWords.dat',
-    #               collection_path='data/part1/testCollection.dat',
-    #               index_path='testIndex.dat',
-    #               titles_path='testTitles.dat')
-    index = Index(index_path='testIndex.dat',
+    index = Index(stopword_path='data/part1/stopWords.dat',
+                  collection_path='data/part1/testCollection.dat',
+                  index_path='testIndex.dat',
                   titles_path='testTitles.dat')
-    with open('data/part1/testQueries.dat') as f:
-        for line in f:
-            print(line.rstrip('\n'))
-            print(index.query(line.rstrip('\n')))
+    # index = Index(index_path='testIndex.dat',
+    #               titles_path='testTitles.dat')
+    # with open('data/part1/testQueries.dat') as f:
+    #     for line in f:
+    #         print(line.rstrip('\n'))
+    #         print(index.query(line.rstrip('\n')))
