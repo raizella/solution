@@ -2,7 +2,6 @@ import re
 import json
 import os.path
 
-from bs4 import BeautifulSoup
 from nltk.stem import PorterStemmer
 
 
