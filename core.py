@@ -29,13 +29,9 @@ class Analyzer:
         words = filter(None, re.split(r'[^a-z0-9]', stream.lower()))
         for word in words:
             if word not in self.stopwords:
-                try:
-                    stemmed_word = self.ps.stem(word)
-                    if stemmed_word:
-                        yield stemmed_word
-                except:
-                    # TODO: Implement a better form of logging
-                    print(word, 'could not be stemmed')
+                stemmed_word = self.ps.stem(word)
+                if stemmed_word:
+                    yield stemmed_word
 
 
 class Index:
@@ -71,7 +67,7 @@ class Index:
                     self.inverted_index[term] = {}
                     self.inverted_index[term][page['id']] = [pos]
 
-    def _parse_xml(self, s) -> Generator:
+    def _parse_xml(self, s) -> Generator[Dict]:
         # TODO: If we use a different data dump, we should use a library like lxml
         while s.find('<page>') > -1:
             start_i = s.find('<id>')
@@ -94,6 +90,7 @@ class Index:
         """Constructs the index from the input index file at
         the given path."""
         # self._index = ...
+        # TODO: (Issue 7)
         raise NotImplementedError
 
     def write(self, index_fp: str, title_fp: str) -> None:
@@ -103,14 +100,14 @@ class Index:
         with open(title_fp, 'w') as f:
             json.dump(self.title_index, f)
 
-    def search(self, query_string: str) -> List[id]:
+    def search(self, query_string: str) -> List[int]:
         """Searches the index for the file"""
         query = QueryFactory.create(query_string)
         return sorted(query.match(self))
         # TODO (ISSUE 5): TF-IDF ranking
         # Scorer().score(results) ...
 
-    def __getitem__(self, term) -> Dict[id, List[id]]:
+    def __getitem__(self, term) -> Dict[int, List[int]]:
         """Returns a dictionary containing mappings of doc_id to the
         positions in the document the term appears in.
 
@@ -146,19 +143,19 @@ class FreeTextQuery(OneWordQuery):
 
 
 class PhraseQuery(Query):
-    def match(self, index: Index):
+    def match(self, index: Index) -> Set[int]:
         # TODO (Issue #3)
         raise NotImplementedError
 
 
 class BooleanQuery(Query):
-    def match(self, index: Index):
+    def match(self, index: Index) -> Set[int]:
         # TODO (Issue #2)
         raise NotImplementedError
 
 
 class WildcardQuery(Query):
-    def match(self, index: Index):
+    def match(self, index: Index) -> Set[int]:
         # TODO (Issue #1)
         raise NotImplementedError
 
@@ -180,7 +177,7 @@ class QueryFactory:
 
 
 class Scorer:
-    # TODO (ISSUE 5): TF-IDF ranking
+    # TODO (Issue 5): TF-IDF ranking
     pass
 
 
