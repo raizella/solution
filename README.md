@@ -2,6 +2,8 @@ This is a Python implementation of a simple inverted index for DATA 2040.
 Currently, the data we are using is available in 
 [this cloud bucket](https://storage.googleapis.com/data2040-data/data.zip).
 
+All code to be implemented during TA camp is in core.py
+
 ## Todo
 - Make this repository private
 - Improve handouts for all assignments
