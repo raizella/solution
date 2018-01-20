@@ -1,8 +1,11 @@
 import re
 import json
+import functools
 import os.path
 
 from nltk.stem import PorterStemmer
+
+import boolparser
 
 
 class Analyzer(object):
@@ -98,7 +101,7 @@ class Index(object):
             s = s[s.find('</page>') + 1:]  # Go to the next page
 
     def invert(self):
-        index = [] # TODO: What if the index doesn't fit in memory?
+        index = []  # TODO: What if the index doesn't fit in memory?
         with open(self.index_path) as index_file:
             for line in index_file:
                 term_obj = json.loads(line)
@@ -112,7 +115,7 @@ class Index(object):
         """Searches the inverted index given a query string.
         """
         query = QueryFactory.create(qs, index)
-        return query.matches()
+        return sorted(query.get_matches())
 
 
 class Query(object):
@@ -120,7 +123,7 @@ class Query(object):
         self.query_terms = Analyzer(stopwords=index.stopwords).terms(query_string)
         self.index = index
 
-    def matches(self):
+    def get_matches(self):
         """Returns the set of IDs in the index corresponding to the query."""
         raise NotImplementedError
 
@@ -129,7 +132,7 @@ class OneWordQuery(Query):
     def is_match(self, term) -> bool:
         return self.query_terms[0] == term
 
-    def matches(self) -> set:
+    def get_matches(self) -> set:
         matches = []
         with open(self.index.index_path) as f:
             for line in f:
@@ -140,10 +143,10 @@ class OneWordQuery(Query):
 
 
 class FreeTextQuery(Query):
-    def matches(self):
+    def get_matches(self):
         matches = set()
         for qt in self.query_terms:
-            matches |= OneWordQuery(qt, self.index).matches()
+            matches |= OneWordQuery(qt, self.index).get_matches()
         return matches
 
 
@@ -152,27 +155,39 @@ class PhraseQuery(Query):
         without_quotes = query_string[1:-1]
         super(PhraseQuery, self).__init__(without_quotes, index)
 
-    def matches(self):
-        # TODO: Find the intersection of all terms in the phrase, keeping
+    def get_matches(self):
+        # TODO: Find the intersection of all terms in the phrase, also keeping
         # track of document position
         raise NotImplementedError
 
 
 class BooleanQuery(Query):
     def __init__(self, query_string: str, index: Index):
-        # TODO: Preserve the parentheses and AND/OR operators
-        # TODO: Complete the operations as of union/intersection operations
+        self.query_ast = boolparser.bool_expr_ast(query_string)
+        self.analyzer = Analyzer(stopwords=index.stopwords)
         super(BooleanQuery, self).__init__(query_string, index)
 
-    def matches(self):
-        raise NotImplementedError
+    def get_matches(self):
+        return self._get_matches(self.query_ast)
+
+    def _get_matches(self, ast):
+        if isinstance(ast, str):
+            return OneWordQuery(ast, self.index).get_matches()
+        if isinstance(ast, tuple):
+            operator, operands = ast
+            if operator == 'OR':
+                unjoined_matches = [self._get_matches(el) for el in operands]
+                return functools.reduce(lambda x, y: x | y, unjoined_matches)
+            elif operator == 'AND':
+                unjoined_matches = [self._get_matches(el) for el in operands]
+                return functools.reduce(lambda x, y: x & y, unjoined_matches)
 
 
 class QueryFactory(object):
     """Creates and parses the query string"""
 
     @staticmethod
-    def create(qs, stopwords):
+    def create(qs, index):
         if qs[0] == '"' and qs[-1] == '"':
             return PhraseQuery(qs, index)
         if 'AND' in qs or 'OR' in qs:
@@ -187,12 +202,13 @@ class QueryFactory(object):
 
 
 if __name__ == '__main__':
-    index = Index(stopword_path='data/part1/stopWords.dat',
-                  collection_path='data/part1/testCollection.dat',
-                  index_path='testIndex.dat',
-                  titles_path='testTitles.dat')
-    # index = Index(index_path='testIndex.dat',
+    # index = Index(stopword_path='data/part1/stopWords.dat',
+    #               collection_path='data/part1/testCollection.dat',
+    #               index_path='testIndex.dat',
     #               titles_path='testTitles.dat')
+    index = Index(index_path='testIndex.dat',
+                  titles_path='testTitles.dat')
+    print(index.query('(password OR secret) AND (login OR account)'))
     # with open('data/part1/testQueries.dat') as f:
     #     for line in f:
     #         print(line.rstrip('\n'))
