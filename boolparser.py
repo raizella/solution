@@ -9,6 +9,7 @@
 #
 # Copyright 2006, by Paul McGuire
 # Modified: 02/2011 for csci1580
+# Modified: 02/2018 for data2040
 
 import pyparsing
 

@@ -1,2 +1,3 @@
 nltk==3.2.5
+pyparsing==2.2.0
 six==1.11.0

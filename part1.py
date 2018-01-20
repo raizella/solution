@@ -35,6 +35,12 @@ class Analyzer(object):
 
 
 class Index(object):
+    # TODO: Use Apache Lucene as guidance
+    # https://lucene.apache.org/core/3_0_3/fileformats.html#file-names
+    # We must support:
+    # - Term frequencies
+    # - Term positions
+
     def __init__(self,
                  stopword_path=None,
                  collection_path=None,
@@ -48,16 +54,16 @@ class Index(object):
         self.index_path = index_path
         self.titles_path = titles_path
         if collection_path is not None:
-            self.from_collection(collection_path)
+            self.create_index(collection_path)
+        self.index = self.load_index()
 
-    def from_collection(self, collection_path):
+    def create_index(self, collection_path):
         """Creates the inverted index and title index from the
         given collection file.
         """
         assert not os.path.exists(self.index_path)
         assert not os.path.exists(self.titles_path)
         with open(collection_path) as f:
-            # TODO: What if the file won't fit in memory?
             s = f.read()
         self.parse(s)
         self.invert()
@@ -65,13 +71,10 @@ class Index(object):
     def parse(self, s):
         analyzer = Analyzer(self.stopwords)
         for i, page in enumerate(self.parse_xml(s)):
-            # TODO: Implement a better form of logging
             print('Indexing doc {}'.format(i))
             stream = page['stream']
             terms = analyzer.terms(stream)
             with open(self.titles_path, 'a') as title_file:
-                # TODO: Implement BSBI
-                # https://nlp.stanford.edu/IR-book/html/htmledition/blocked-sort-based-indexing-1.html
                 json.dump({'id': page['id'], 'title': page['title']},
                           title_file)
                 title_file.write('\n')
@@ -101,7 +104,7 @@ class Index(object):
             s = s[s.find('</page>') + 1:]  # Go to the next page
 
     def invert(self):
-        index = []  # TODO: What if the index doesn't fit in memory?
+        index = []
         with open(self.index_path) as index_file:
             for line in index_file:
                 term_obj = json.loads(line)
@@ -110,6 +113,12 @@ class Index(object):
         with open(self.index_path, 'w') as index_file:
             for obj in index:
                 index_file.write('{}\n'.format(json.dumps(obj)))
+
+    def load_index(self):
+        """Reads the inverted index into a Python dictionary.
+        The keys are terms and the values are lists of ids.
+        """
+        raise NotImplementedError
 
     def query(self, qs: str):
         """Searches the inverted index given a query string.
@@ -156,7 +165,6 @@ class PhraseQuery(Query):
         super(PhraseQuery, self).__init__(without_quotes, index)
 
     def get_matches(self):
-        # TODO: Find the intersection of all terms in the phrase, also keeping
         # track of document position
         raise NotImplementedError
 
