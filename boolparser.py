@@ -7,7 +7,7 @@
 #   given a AND b
 #   returns ('AND', ['a','b'])
 #
-# Copyright 2006, by Paul McGuire
+# Copyright 2006, by Paul McGuir
 # Modified: 02/2011 for csci1580
 # Modified: 02/2018 for data2040
 
@@ -63,7 +63,7 @@ opList = [("AND", 2, pyparsing.opAssoc.LEFT, BoolAnd),
 boolExpr = pyparsing.operatorPrecedence(boolOperand, opList)
 
 
-def bool_expr_ast(expr):
+def bool_expr_ast(expr : str) -> Union[str, tuple]:
     expr = expr.strip()
     parsed_expr = boolExpr.parseString(expr)[0]
     if not isinstance(parsed_expr, BoolOperand):

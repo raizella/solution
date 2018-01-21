@@ -13,6 +13,7 @@ from typing import List, Set, Dict, Generator
 
 from nltk.stem import PorterStemmer
 
+from boolparser import bool_expr_ast
 
 class Analyzer:
     """Filtering stopwords and stemming"""
@@ -151,7 +152,24 @@ class PhraseQuery(Query):
 class BooleanQuery(Query):
     def match(self, index: Index) -> Set[int]:
         # TODO (Issue #2)
-        raise NotImplementedError
+        #terms = index.analyzer.get_terms(self.query_string)
+        # A single word may be split into multiple terms!
+        parsed_query = bool_expr_ast(self.query_string)
+
+        return self.helper(parsed_query)
+
+
+    def helper(self, parsed_query):
+        if isinstance(parsed_query, str):
+            return OneWordQuery(parsed_query).match(index)
+
+        operator, operands = parsed_query
+
+        matches = [self.helper(operand) for operand in operands]
+        if operator == 'OR':
+            return functools.reduce(lambda s, t: s.union(t), matches)
+        else: # AND
+            return functools.reduce(lambda s, t: s.intersection(t), matches)
 
 
 class WildcardQuery(Query):
