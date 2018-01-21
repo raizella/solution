@@ -1,0 +1,6 @@
+__pycache__/
+.idea/
+data/
+testIndex.dat
+testTitles.dat
+

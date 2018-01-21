@@ -12,6 +12,7 @@
 # Modified: 02/2018 for data2040
 
 import pyparsing
+from typing import Union
 
 
 # TODO: Consider implementing this as a Python Abstract Base Class

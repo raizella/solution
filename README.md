@@ -13,3 +13,12 @@ All code to be implemented during TA camp is in core.py
 - Incorporate code style tools (pylint)
 - Share the Google Cloud project with team members
 - Add these todos to the Trello board
+
+
+## Setting up on Pycharm
+
+1. Default settings -> Project Interpreter -> Pick a version of Python 3.6 -> OK
+2. Settings -> Project:solution -> Project Interpeter -> Settings icon -> Create virtual env -> name virtual environment, pick 3.6 -> OK
+3. Alt-F12 to open the terminal in Pycharm
+4. pip install -r requirements.txt
+

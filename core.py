@@ -68,7 +68,7 @@ class Index:
                     self.inverted_index[term] = {}
                     self.inverted_index[term][page['id']] = [pos]
 
-    def _parse_xml(self, s) -> Generator[Dict]:
+    def _parse_xml(self, s) -> Generator[Dict, None, None]:
         # TODO: If we use a different data dump, we should use a library like lxml
         while s.find('<page>') > -1:
             start_i = s.find('<id>')
@@ -87,18 +87,20 @@ class Index:
             yield {'id': doc_id, 'title': title, 'stream': stream}
             s = s[s.find('</page>') + 1:]
 
-    def read(self, index_fp: str, title_fp: str) -> None:
+    def read(self, index_filepath: str, title_filepath: str) -> None:
         """Constructs the index from the input index file at
         the given path."""
         # self._index = ...
-        # TODO: (Issue 7)
-        raise NotImplementedError
+        with open(index_filepath, 'r') as f:
+            self.inverted_index = json.load(f)
+        with open(title_filepath, 'r') as f:
+            self.title_index = json.load(f)
 
-    def write(self, index_fp: str, title_fp: str) -> None:
+    def write(self, index_filepath: str, title_filepath: str) -> None:
         """Writes the index to disk at the given folder"""
-        with open(index_fp, 'w') as f:
+        with open(index_filepath, 'w') as f:
             json.dump(self.inverted_index, f)
-        with open(title_fp, 'w') as f:
+        with open(title_filepath, 'w') as f:
             json.dump(self.title_index, f)
 
     def search(self, query_string: str) -> List[int]:
@@ -201,10 +203,13 @@ class Scorer:
 
 if __name__ == '__main__':
     # TODO (Issue 6): Test suite
+
+
     with open('data/part1/stopWords.dat') as f:
         stopwords = [line.rstrip('\n') for line in f]
     index = Index(stopwords)
     print('Loading Index')
+    #index.read("testIndex.dat", "testTitles.dat") #Uncomment this call to read and comment the call to parse to read
     index.parse('data/part1/testCollection.dat')
     print('Index Loaded')
     print('Saving index')
