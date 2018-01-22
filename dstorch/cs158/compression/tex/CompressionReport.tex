@@ -1,0 +1,85 @@
+\documentclass[11pt]{article}
+
+\usepackage{fullpage}
+
+\parskip 7pt
+\parindent 0pt
+
+\title{Compression Contest}
+\author{David Storch and Matt Mahoney \\
+	logins: dstorch, mjmahone}
+\date{4 March 2011}
+
+\begin{document}
+
+\maketitle
+
+\section{Question 1}
+
+We used the same strategy to compress both the positional and non-positional indexes.
+
+The first step in the compression is converting the positional indices to relative indices, storing
+the differences between consecutive values rather than the values themselves.
+This is done for both the docIDs and the positional indices, i.e. 10:0,5,20 40:8,32 becomes
+10:0,5,15 30:8,24.
+
+The next step in the compression is, for each line, mapping each character to a half-byte, or nibble. As we only need to
+take care of 15 different characters, we make each digit (0-9) equivalent to it's corresponding nibbles
+(i.e. 0 is 0000, 9 is  1001), with five special characters: newline maps to 1010, 
+space to 1011, colon to 1100 and comma to 1101. 
+We also reserve 1110 for an end-of-line blank-space (as it is possible for a postings list to have an odd number of characters in it, and we require each line to be a whole number of bytes).
+
+The final step is to create a ``mini-index'', which is compressed in the same way as 
+the rest of the index file. This mini-index is simply a list of space-separated numbers, in which the $i$th number corresponds
+to the byte at which the $i$th posting list begins in the compressed file. This mini-index is written
+at the very beginning of the compressed binary file. The first eight bytes of the file are reserved for storing
+the length of the mini-index so that the decompressor is able to distinguish the mini-index from the compressed postings lists.
+
+\section{Question 2}
+
+Our compressed non-positional index file is 17,938,805 bytes, which is 25.7\% 
+the size of the original file. Our compressed positional index file is
+69,911,298 bytes, which is 35.6\% the size of the original file. Since the
+compression strategies are identical for both files, the better compression
+ratio for the non-positional file can be explained as follows: the non-positional
+file has a higher proportion of characters that can be eliminated by taking the
+differences between consecutive docIDs (it has no commas or colons, and has 
+fewer small numbers that cannot be further compressed).
+
+\section{Question 3}
+
+\centering
+\begin{tabular}{|c||c|c||c|c|}
+\hline
+\textbf{compressor} & \textbf{non-positional size} & \textbf{positional size}
+& \textbf{non-positional ratio} & \textbf{positional ratio}\\
+\hline
+gzip & 27,262,211 & 88,810,021 & 0.3910 & 0.4530 \\
+bzip2 & 17,122,370 & 74,423,056 & 0.2456 & 0.3796 \\
+7z & 13,568,351 & 69,788,951 & 0.1946 & 0.3560 \\
+ours & 17,938,805 & 69,911,298 & 0.2573 & 0.3566 \\
+uncompressed & 69,726,288 & 196,048,431 & 1 & 1\\
+\hline
+\end{tabular}
+
+\flushleft
+Our compressor performed similarly to 7z for the positional index file, and a good deal better
+than bzip2 and gzip. With the non-positional index, however, we only did better than gzip.
+That being said, these compressors cannot be used as part of an information retrieval system, because
+we can't quickly query these files without decompressing them---our decompressor, on the other hand,
+keeps a table in order to support fast queries (see Question 1).
+
+\section{Question 4}
+
+One possible improvement would be to encode the docIDs and positions
+as binary numbers using variable byte encoding, 
+rather than using a nibble for each digit. If the postings file contains lots of large
+numbers, this would be a significant improvement.
+Decompression would be more challenging, though, 
+because we would need a way to discriminate
+between nibbles for binary numbers and nibbles for special characters (comma, colon, etc.).
+If we were to change our strategy completely, we could have used a bit code
+rather than a byte code---but this would require bit-packing on byte-addressable
+machines, and would likely make our compressor and decompressor run significantly slower.
+
+\end{document}

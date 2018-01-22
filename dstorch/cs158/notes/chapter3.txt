@@ -1,0 +1,47 @@
+3.1
+---
+
+p.46 -- hashing and search trees are two common solutions for fast
+lookup of terms in the dictionary
+-a brief explanation of how b-trees are useful in IR
+
+p.48 -- using b-trees to support wildcard queries with "*"
+
+p.49 -- permuterm indexes provide for a more general way
+of handling wild card queries; the permuterm vocabulary
+consists of all the rotations of each term in the original
+dictionary
+-the disadvantage of the permuterm index is that the
+dictionary becomes quite large
+
+p.50 -- another way to support wildcard queries is through
+k-gram indices.
+-!! know why we have to use a postfiltering step when implementing
+wildcard queries with a k-gram index !!
+
+3.3 - Spelling Correction
+-------------------------
+
+p.53 - there are two kinds: isolated-term correction and
+context-sensitive correction
+-edit distance or Levenshtein distance
+
+p.55 - instead of computing the edit distance between the
+query term and all other terms in the dictionary, we can
+use k-grams to retrieve words that are similar enough
+to be candidates for spelling correction
+
+p.56 - the Jaccard coefficient allows us to use the k-gram
+index to determine likely spelling correctors
+
+p.57 - one way to do context-sensitive spelling correction
+is to kind "corrections" for each query term, whether or
+not the term is correctly spelled. Then try substitutions
+and count the number of postings connected to each. Most
+frequently appearing correction is likely the proper correction.
+
+3.4 - Phonetic Correction
+-------------------------
+
+p.58 - can be done using soundex algorithms; mainly used
+to correct phonetic misspellings in proper names

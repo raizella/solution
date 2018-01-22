@@ -1,0 +1,392 @@
+\documentclass[11pt]{article}
+
+\title{Building a Search Engine: Final Report}
+\author{David Storch \\ login: dstorch}
+\date{6 May 2011}
+
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\parskip 7pt
+\parindent 0pt
+
+\begin{document}
+
+\maketitle
+
+\section{Modified preprocessing}
+
+\subsection*{Zones}
+
+The indexing program, \texttt{createIndex.sh}, now offers an implementation of zones.
+Namely, it treats the title, the top section of the page (i.e. the \textit{header section} before any subsections begin), and the remainder
+of the page text as three different zones. There are separate indexes for each of these zones, allowing
+\texttt{queryIndex.sh} to weight tf-idf scores higher in the title and top section than in the remainder
+of the page. It is useful to give high weight to the header section because this section of a wiki article generally contains core terminology.
+I implemented zones by separating the header from the remainder of the
+text, and then indexing each part separately.
+
+My implementation of zones does not incur additional time overhead because
+the total number of terms in the collection that need to be processed is unchanged. This was confirmed
+in practice: producing zone indices did not increase the processing time for \texttt{createIndex.sh}.
+
+There is a small space overhead because we need to store a separate dictionary for each index, and these dictionaries
+share a large number of terms. Furthermore, if a word occurs in both the header and the body of a page, we must store its
+docID in both indices. In the worst case, the dictionary term redundancy is $O(t)$,
+where $t$ is the number of terms in the collection, and the docID redundancy is $O(N)$ where $N$ is the number of documents
+in the collection. Where $l$ is the number of tokens in the entire collection, $N < t << l$, meaning that the space cost
+is small in comparison to the size of the full collection. The index from part 2 was 253,700,823 bytes whereas the
+combined indices using a zone implementation was 259,472,965 bytes---only 2\% larger.
+
+\subsection*{Stubs}
+
+\texttt{createIndex.sh} identifies docIDs corresponding to very short articles that are marked
+as stubs. These identifications are passed to \texttt{queryIndex.sh}, which decreases the score of
+stub articles. My search engine from Part 2 would sometimes favor very short documents due to document
+length normalization---if search terms appear in a document that is only 50 words long, the search terms
+comprise an unnaturally large proportion of the terms in the document. Furthermore, very short articles are often
+not the most relevant or authoritative. There is no additional time cost for underweighting stubs, and the space cost is $O(N)$, which as
+we have already discussed is not significant relative to the size of the full collection.
+
+\subsection*{Wiki Markup}
+
+The wiki markups are parsed by \texttt{createIndex.sh} so as to remove semantically useless
+tags. For instance, tags such as ``$<$div class=`references-small'/$>$'' are removed, and will not be
+indexed. However, tags that may have useful semantic content---such as references to related webpages
+or written documents---\textit{are} indexed.
+
+This was implemented by preprocessing the text with regular expressions prior to indexing. Therefore,
+this requires an additional scan through the entire collection---but does not change the overall
+time complexity. Removing unneeded wiki tags saves space proportional to the number of excised tags.
+
+\subsection*{Stop Words}
+
+In order to improve phrase queries that involve stop words, I decided to produce a shorter stop
+words list. My new list consists of all terms in the lexicon that appear at least once in 75\% of the
+documents in the collection. The resulting list of 15 words appears in the file \texttt{stopWords.out}. A term that appears
+in more than three-quarters of the documents is extremely unlikely to contribute to rankings in a meaningul
+way. Using the inverted stop words lists increased the size of the inverted index by 13\% (from 259,472,965
+bytes to 293,744,695 bytes).
+
+I compared rankings on my standard query set using the old and new stop words, and found that the rankings
+ are identical for most queries. Therefore, removing stop words does not have a major effect on ranking results.
+However, there is a significant imrpovement for select queries because stop words in the original
+list, such as ``image'' and ``c'', have important meaning in the context of computer science. With my new 
+stop word set, the first two results for the query \texttt{c shell} are the articles ``C Shell'' and ``C (programming language)'',
+whereas with the original stop words these most relevant articles are ranked lower.
+The smaller stop words set thus supports better queries, at the expense of a larger
+inverted index.
+
+\section{Ranking algorithm for \texttt{queryIndex}}
+
+The core ranking algorithm is a weighted average of header section tf-idf, page body tf-idf,
+PageRank, and Multinomial Naive Bayes classification. The algorithm is described step-by-step below:
+
+\subsection*{Weighted Average}
+
+First, the set of pages $\mathcal{P}$ matching the query is retrieved, according to the query type.
+Next the max tf-idf for the header zone and the max tf-idf for the page zone are computed over
+the set of search hits $\mathcal{P}$. The zone scores for each document $d \in \mathcal{P}$ are normalized
+by the respective maxes, giving the header score h$(d)$ and the body score b$(d)$. This step ensures that
+the both h$(d)$ and b$(d)$ are ``on even footing'', with their relative contributions to the overall
+ranking controlled only by the weights in our weighted average.
+
+Unlike the tf-idf scores, the PageRank scores spanned a range of about three orders of magnitude,
+from about $10^{-3}$ to $10^{-6}$. In order to compress this range, I take the page rank as
+
+\[\text{pr}(d) = \frac{-1}{\log(\text{pr}'(d))}\]
+
+where $\text{pr}'(d)$ denotes the original PageRank of document $d$. These new PageRank scores
+are then normalized by the highest such score in the result set $\mathcal{P}$.
+
+Instead of classifying the query, I use the multinomial naive Bayes classifications
+of the \textit{search results} to contribute to the weighting scheme.\footnote{We found in the that our implementation of the
+Multinomial Naive Bayes classifier could classify unseen documents with an error rate of about 40\%}
+After retrieving the query result set $\mathcal{P}$,
+the fraction of documents classified within each category is determined.
+The score $\text{mnb}(d)$ for a document $d \in \mathcal{P}$ is 
+
+\[\text{mnb}(d) = \frac{C_{d}}{|\mathcal{P}|}\]
+
+where $C_{d}$ denotes the number of documents in $\mathcal{P}$ that are classified in the same category as $d$.
+Using this scheme, the MNB term does not have much of an effect on the overall ranking unless a large proportion
+of the documents in $\mathcal{P}$ have the same classification. In this case, the documents that do not belong to
+the most common class are at a relative disadvantage, and should be sifted down to a lower position in the ranking.
+
+The ranking was computed as a weighted average
+
+\[\text{rank} = w_{1} \cdot \text{h}(d) + w_{2} \cdot \text{b}(d) + w_{3} \cdot \text{pr}(d) + w_{4} \cdot \text{mnb}(d)\]
+
+where $0 \leq \text{rank} \leq 1$ and $w_{1} + w_{2} + w_{3} + w_{4} = 1$.
+
+\subsection*{Finding the Weights}
+
+The weights are initialized as follows: $w_{1} = 0.45$, $w_{2} = 0.4$, $w_{3} = 0.1$, $w_{4} = 0.05$. I determined these
+default weightings by experimenting as described in Question 3 below.
+
+The weights are updated for each document depending on specific document characteristics. The body tf-idf weight $w_{2}$ is decreased
+when the article is tagged as a stub. When the header section is very short (less than 1000 characters), the weight given to the header
+is decreased, avoiding a bias in favor of articles with short headers.
+
+Most importantly, the PageRank weight is determined by the average inverse document frequency of the query terms. Since query specificity is
+associated with a high idf score, the PageRank weight $w_{3}$ is defined increase to linearly with \textit{decreasing} idf. In order to compensate, $w_{1}$ and
+$w_{2}$ increase linearly with \textit{increasing} idf.
+
+\subsection*{Additional Weighting}
+
+Finally, if there are $k$ terms in the query that match terms in the document title, the overall score is multiplied by $1.3^{k}$.
+This strongly favors documents whose titles share words with the query.
+
+\section{Experimental set-up for evaluating search relevance}
+
+In addition to printing the top 10 docIDs selected by the search engine, I altered
+my search engine to print the final score, the contributing terms that led to this score,
+and the title of the document. This allowed me to adjust the default weights $w_{1}$, $w_{2}$,
+$w_{3}$, and $w_{4}$, as well as to observe some trends in the rankings. For example, I noticed
+that on some general queries, unrelated articles with low tf-idf scores could make it into
+the top ten results due to the boosted PageRank weight. That is, a non-relevant document
+containing a single instance of a query term could still be ranked highly due to PageRank.
+This led me to establish the heuristic that if the
+weighted PageRank score is 10 times larger than the weighted idf-score, then the PageRank is
+decreased by 50\%---an effective technique for eliminating non-relevant results with inflated
+PageRank.
+
+I also ran repeatedly ran my search engine on a standard set of queries.\footnote{The queries appear in
+the file \texttt{queries.dat}. They are a combination of the provided queries, and new
+queries that I have generated.} I then ran the script \texttt{evaluateTestQueries.py} on the results in order
+to compare the results to my search engine from Part 2. This was useful both as a sanity check to
+make sure that my weighted ranking scheme was producing reasonable results, and to evaluate my progress as
+I made changes to the algorithm.
+
+%\begin{math}
+%<\text{docID}> <\text{final score}> w_{1}\text{h}(d) w_{2}\text{b}(d) w_{3}\text{pr}(d) <\text{title}>
+%\end{math}
+%
+%I also generated a long list of standard test queries which I could run
+%
+%I compiled a short list of queries by which the ranking scheme could
+%be manually inspected and analyzed for accuracy of results. These queries
+%are summarized in the table below.
+%
+%
+%\begin{tabular}{|l|l|}
+%\hline
+%\textbf{query} & \textbf{description} \\
+%\hline
+%\texttt{computer science} & general term with lots of hits; \\
+%			  & many relevant hits so only the most \\
+%			  & general or the most authoritative should \\
+%			  & be chosen \\ \hline
+%\texttt{microsoft windows} & a specific but popular query which should \\
+%			  & have lots of hits; the best ranking selects \\
+%			  & extremely relevant articles first such as \\
+%			  & ``Microsoft Windows'' and ``Windows XP'' \\ \hline
+%\texttt{liverpool blue coat school}
+%			  & an obscure query which should have the single \\
+%			  & relevant article ranked first \\ \hline
+%\texttt{PageRank AND Google}
+%			  & a highly specific query which should return \\
+%			  & authoritative articles such as ``Google'', \\
+%			  & ``PageRank'', and ``History of Google'' \\ \hline
+%\texttt{the best apple products to buy}
+%		 	  & a good search engine will effectively ignore the \\
+%			  & unimportant words in this query---it will return \\
+%			  & results related to apple products \\ \hline
+%\texttt{hello kitty}
+%			  & a query outside the scope of the collection; \\
+%			  & a good search engine will be able to locate \\
+%			  & the few references to this topic inside the \\
+%			  & collection \\ \hline
+%\texttt{``image id''}
+%			  & these terms are very common due to wiki markup tags, \\
+%			  & and appear in the original stop words list \\
+%\end{tabular}
+%
+%These queries appear in the file \texttt{myQueries.dat}, and can be piped into
+%the search engine in order to evaluate its performance. In addition to these
+%selected queries, I ran my results for all provided queries for part 2 against
+%the expected queries in order to make sure that there was consistently some
+%overlap. This was a sanity check to make sure that my weighted
+%ranking scheme was producing reasonable results---see Question 5 for more
+%details.
+
+\section{Analysis of final ranking scheme}
+
+
+\subsection*{One word queries}
+
+One word queries perform well for both obscure and general terms. Both the
+general term \texttt{computer} and the specific term \texttt{BBN} (referring to the Cambridge, Massachusetts
+technology company) give reasonable results. It is difficult to find a one-word query that
+does not succeed. Even extremely vague queries like just the letter \texttt{N} produce some reasonable
+results (``N-gram'' and ``N-jet'').
+
+\subsection*{Free text queries}
+
+The search engine performs very well when given ``popular queries''---queries related
+to a topic which appears frequently in the collection and which will be best described
+by a few detailed articles. For example,the query \texttt{Microsoft Windows} returns
+``Microsoft Windows'', ``Windows 2000'', and ``Windows Vista'' as the three top hits.
+
+The engine also does extremely well for obscure queries targeted at particular documents.
+For instance, \texttt{ricoh caplio gx100} returns ``Ricoh Caplio GX100'' followed by
+several other wiki pages on Ricoh cameras.
+
+The performance is not as good, however, for queries such as \texttt{important
+algorithms to learn} which have words which contribute very little to the meaning of the query.
+The top results for this query are ``Meta learning (computer science)'' and ``Student approaches
+to learning''. The search engine does not do any semantic analysis to determine that the querier
+actually wants to find documents relevant to the term ``algorithms'' and not to
+the term ``learn''.
+
+\subsection*{Phrase queries}
+
+Most phrase queries work smoothly, especially given the reduced stop words list. For instance,
+the general query \texttt{``computer science''} and the more specific phrase \texttt{``most common configuration''}
+both produce good results. Whereas \texttt{``computer science''} identifies the principle articles
+about the discipline of computer science, \texttt{``most common configuration''} identifies the handful of documents
+which contain the query phrase and ranks them reasonably.
+
+Phrase queries can perform poorly if the query terms have imbalanced tf-idf rankings. For example, the
+results for the query \texttt{``new algorithm''} are influenced heavily by the term ``algorithm'' but have
+nothing to do with the query term ``new''. 
+
+\subsection*{Boolean queries}
+
+Boolean queries turn out swimmingly if the invidual terms in the query are closely related. For example,
+\texttt{google AND pagerank} turns up ``PageRank'', ``Google'', ``List of Google Products'', and
+``History of Google'' as the first four hits---clearly the most relevant responses to the query.
+
+If terms are somewhat randomly conjoined by boolean operators, the results are noticably worse.
+Consider the query \texttt{tree OR situation AND bill}. The ranking promotes articles like
+``Phylogenetic tree'' and ``Veteran tree'', but there is no obvious relationship in the
+top articles to the terms ``situation'' and ``bill''.
+
+\subsection*{Wildcard queries}
+
+For the query \texttt{t*pedo}, all of the search results are indeed torpedo-related.
+
+One-word queries that refer to a variety of subjects also succeed. For example, the search
+\texttt{bio*} yelds ``Biostar'', ``Biotope'', ``Biome'', and ``Bioregionalism''. In this case the success
+is due to high tf-idf weights---the prefix ``bio'' is very common in these articles. If we allow PageRank
+to take over for an overly general query, however, the results can become seemingly random. This is true
+for the query \texttt{tope*} because the character string ``tope'' can appear in diverse contexts. The hits
+for \texttt{tope*} involve both Topeka, Kansas and j-topes (j-dimension polytopes from mathematics).
+
+\subsection*{Wildcard phrase queries}
+
+Wildcard queries perform well when the asterisk can be matched to a relatively small number
+of terms. For instance, \texttt{``tur* machine''} returns ``Turing machine'', ``Non-deterministic Turing machine'',
+and ``Multi-track Turing machine'' as its three top hits.
+
+The results can be bad when the wildcard has many possible matches. The top hits for \texttt{``text class*''}
+are ``Polymorphic association'' and ``Member variable''. Such bad results can occur because the weighting scheme will
+ treat the query as general, giving additional weight to PageRank.
+The query is intended to match ``text classification'', a specific topic which will have a low PageRank compared
+to more general topics in computer science which use variants of the term ``class''.
+Furthermore, the wildcard term may influence the results more than the other terms in the query. 
+
+
+\section{Comparison to the rankings from Part 2}
+
+For my test query set, the average number of shared results for a given query (ignoring order) is
+5.98, so there is a fair amount of similarity between the two search engines. However, the examples
+below demonstrate that the change represents an improvement from the original search engine implementation.
+There is noteworthy improvement for the following types of queries:
+
+\begin{itemize}
+\item Phrase queries or free text queries involving stop words.
+\item General queries whose terms appear widely throughout the collection.
+\item Queries matching the title of an article.
+\item Queries whose terms appear frequently in the header section of an article.
+\end{itemize}
+
+
+\subsection*{One word queries}
+
+The query \texttt{windows} clearly demonstrates the benefits of the advanced search engine implementation.
+The naive search engine returns ``Window'' (the architecture kind) as its top hit. The advanced implementation, on
+the other hand, is able to infer that the top hit should be ``Microsoft Windows''. This is due primarily to
+the extremely high PageRank of the ``Microsoft Windows'' page. However, the repitition of the term ``windows''
+in the header section of the article also leads to a high zone score for the header section.
+
+The original implementation yields ``David Peleg (computer scientist)'' as the top-ranked document in response to the query
+\texttt{dijkstra}. David Peleg won an award named after Dijkstra, and therefore the article has little to do with
+Edsger W. Dijkstra himself. On the other hand, the improved search
+engine ranks ``Structured programming'' first, a concept pioneered by Dikjstra. These improved results
+largely arise from zones and identification of stubs. The ``David Peleg'' article is very short,
+whereas ``Structured programming'' is longer and mentions Edsger Dijkstra several times in the header
+section. In this way, the query \texttt{dijkstra} demonstrates the affects of zones and stubs preprocessing.
+
+\subsection*{Free text queries}
+
+The query \texttt{b-tree} demonstrates the utility of shrinking the stop words set. The original implementation
+comes up with ``List of data structures'' and general articles about trees. The advanced implementation registers
+the ``b'' as a term rather than a stop word, and returns ``B-tree'' as the top hit, with ``B sharp tree'' and ``B*-tree'' close behind.
+
+The original search engine returned lots of bad results for the query \texttt{computer science}. The hits
+``E-science'' and ``E-social science'' are probably not what the end-user would want to find. This pollution of search
+results stems from the fact that virtually the entire collection contains references to computer science. A simple
+tf-idf engine will therefore just return the document with the most frequent usage of the terms ``computer'' and ``science''---not a
+very useful measure of relevance for the end-user. The advanced search engine, on the other hand, returns ``Computer science'',
+``Bachelor of computer science'', and ``Computational science'' as the top hits. PageRank has used link analysis to
+determine the value of an article $a$ in terms of the articles which link to $a$. This provides
+a measure of content value that goes beyond whether the text contains the query terms.
+
+The advanced search engine similarly improves on most general queries, especially about central topics in
+computer science. We can observe a similar improvement for the query \texttt{mac computer}.
+
+\subsection*{Phrase queries}
+
+Running the phrase query \texttt{``structured query language''} on both search engines provides
+a good example of the advantages of the new implementation. The old search engine highly ranks
+``Microsoft Query by Example'' and ``Chess Query Language''. The new search
+engine implementation ranks ``Structured query language interface'', ``.QL'', and ``SQL'' as the top three hits.
+``Microsoft Query by Example'' is a stub article, resulting in a lower ranking by the advanced
+search engine.
+
+For the query \texttt{``music computer''}, the original implementation comes up with generic computer-related
+results such as ``Generative grammar'' and ``List of computer magazines''. In constrast, the advanced search engine
+is able to find results that are related to both computers and music---``Orion (music software)'', for example.
+The contributions from the various terms in the weighted average suggest that this was an effect of both
+PageRank and multinomial naive bayes classification.
+
+\texttt{``Central processing unit''} produces great results on the advanced implementation; the wiki articles
+``Central processing unit'', ``Process management (computing)'', and ``Arithmetic logic unit'' are within the
+top four hits. The naive search engine produces ``quantum processing unit'' as its best result along with
+several other less relevant results. 
+
+\subsection*{Boolean queries}
+
+For the original search engine, the query \texttt{united AND parliament} does not produce many relevant
+results beyond unfamiliar names of statesmen. On the other hand, the improved implementation yields
+pages including ``United Kingdom'' and ``House of Lords''.
+
+The wiki article ``IBM System z'' contains a detailed introductory section which repeatedly uses
+the terms IBM and zSeries. We expect to find that the ranking of this article will be improved
+by the advanced implementation for the query \texttt{IBM AND zSeries}. Indeed, we find that
+``IBM System z'' is the first hit.
+
+When passed the query \texttt{javascript OR web AND design}, the naive search engine produces
+reasonable results. However, almost all of the results are related to Java script and not to
+web design. The advanced implementation does a better job of including results relevant to
+both sides of the OR statement. The results include ``Unobtrusive Javascript'' and ``Javascript engine'',
+but also ``Tableless web design'' and ``Web development''.
+
+\subsection*{Wildcard queries}
+
+Having parsed out the <ref> tags in the wiki markup, the query \texttt{ref*} turns up much more useful
+results (``reflection (computer science)'', ``reference (computer science)'') than the naive implementation.
+
+The new implementation also does better for \texttt{vapor*}, turning up results such as ``Reboiler'' rather
+than ``Prognostic variable'' and ``Duke Nukem Forever''. Examining the relative contributions from the
+various terms in the weighted average shows that the ranking was larger determined by the text in the header
+section of the pages.
+
+The \texttt{tur* machine} example from the previous problem, when passed to the naive search engine, does not output
+any Turing machine-related results. In contrast, the top results for
+the advanced implementation are articles about Turing machines.
+
+
+\end{document}

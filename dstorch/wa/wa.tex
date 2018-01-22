@@ -1,0 +1,361 @@
+\documentclass[10pt]{article}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{verbatim}
+\usepackage{fancyvrb}
+\usepackage{amsmath, amssymb}
+\setlength\textwidth{6.5in}
+\setlength\oddsidemargin{0in}
+\setlength\evensidemargin{0in}
+\pagestyle{empty}
+
+\newcommand{\olya}[1]{\textbf{Olya: #1}}
+\newcommand{\eli}[1]{Eli: \textbf{#1}}
+\newcommand{\alb}[1]{\textbf{Alb: #1}}
+\newcommand{\ignore}[1]{}
+
+\newcommand{\file}[1]{\texttt{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\fvset{numbers=left,frame=single}
+
+\begin{document}
+
+\title{\vspace{-15mm}{\small Brown~University --- CSCI~1580 --- Spring~2013}\\Warm-Up Assignment}
+\author{Due: 11:59am, 01 Feb 2013}
+\date{}
+\maketitle
+\pagestyle{plain}
+\thispagestyle{empty}
+
+\section*{Overview}
+
+% This warm-up assignment has the following goals:
+% \begin{itemize}
+% %     \item you will get acquainted with Python,
+%     \item you will test your ability to write
+%         specification-compliant code, and
+%     \item you will understand how the submission script works.
+% \end{itemize}
+% You will need all the above skills
+% to successfully develop the Course Project
+% ``Building a Web Search Engine''!
+
+This warm-up assignment has two goals:
+you will test your ability to write
+specification-compliant code,
+and you will understand how the submission script works.
+You will need both of the above skills
+to successfully develop the Course Project
+``Building a Web Search Engine''!
+
+In this assignment you will write a toy program
+to solve anagrams.
+You are given a dictionary (a set of words),
+and you should write a program that tells you
+if the sequence of characters you pass in
+is the anagram of some word in the dictionary.
+In this case, you should output the matching word(s).
+For example, if you query for ``cta'',
+you might get ``cat'' and ``act''.
+A detailed specification will be given
+in Section~\ref{spec}.
+
+As explained in Section~\ref{submission},
+you will submit your files
+using the same procedure that
+you will use later for the Course Project,
+so please follow it strictly.
+
+\emph{You should submit this assignment
+in order to be registered
+in the evaluation system of the Course.}
+
+Please read carefully the whole document
+before starting coding.
+If you are in doubt, ask the TAs.
+
+\section{Specification}
+\label{spec}
+
+\subsection{General Requirements}
+\label{general}
+
+As mentioned in the overview,
+you are given a set of words,
+the ``dictionary'',
+and you should write a program that
+returns the word(s) in the dictionary
+that are anagrams of the word(s) you pass in.
+To solve the task, you will use the following strategy.
+
+First, you will write a program,
+% \file{createIndex.py},
+\file{createIndex},
+that reads each word from the dictionary,
+and returns a sorted index of entries,
+with each entry corresponding
+to exactly one word of the dictionary.
+Each entry should be a pair ``\code{asciisort(word)$|$word}'':
+the part after the ``\code{$|$}'' is the dictionary word,
+while the part before the ``\code{$|$}'' is
+the concatenation of its characters,
+sorted in increasing ASCII code order.
+The whole index must be sorted,
+first according to \code{asciisort(word)}
+and, in case of a tie, according to \code{word}.
+
+Then, you will write a second program,
+% \file{queryIndex.py},
+\file{queryIndex},
+that finds out whether there exists
+one or more words in the dictionary
+that are the anagrams of a given query,
+using the index built by
+% \file{createIndex.py}.
+\file{createIndex}.
+
+\subsection{Programming Language}
+\label{language}
+
+You can use any programming language you like,
+provided that its compiler and interpreter
+are available on any CS machine.
+\emph{However, we strongly suggest you to code in Python,
+as it significantly reduces the programming overhead.}
+
+To run your programs,
+we will execute two Bash scripts,
+\file{createIndex.sh} and \file{queryIndex.sh},
+which you should modify by
+adding the proper command line for invoking your programs.
+For example, if you choose to code in Python,
+and write your main program as \file{queryIndex.py},
+your \file{queryIndex.sh} file might look as follows:
+\begin{figure}[ht]
+\begin{Verbatim}
+#!/bin/bash
+python queryIndex.py $@
+\end{Verbatim}
+% \caption{Example of the Bash script \file{queryIndex.sh}}
+\label{fig:queryIndex}
+\end{figure}
+
+
+\subsection{Input/Output Specification}
+\label{input}
+
+You can presume that the dictionary contains words,
+one per line, where ``word'' is a non-empty string on the alphabet \code{[0-9A-Za-z ]}.
+(Note that a word might contain spaces.)
+The same assumption holds for the queries too.
+For example,
+``\code{orwell}'',
+``\code{Orwell}'',
+``\code{ORWELL}'',
+``\code{1984}'',
+``\code{\ \ }'' (two spaces),
+``\code{Animal Farm}'',
+are all legal and distinct words.
+You do not need to worry
+about checking for valid/invalid/duplicated words in your code.
+
+The dictionary is a sequence of words,
+separated by a newline character ``\code{\textbackslash n}''.
+% Your \file{createIndex.py} program should read
+Your \file{createIndex} program should read
+the dictionary from the standard input
+and output the generated index on the standard output,
+thus allowing file redirection.
+Note that the number of lines of \file{myIndex.txt}
+should be the same as of \file{myDictionary.txt}.
+See below for a complete example.
+
+You will pass the name of the dictionary file
+as the first argument on the command line
+% invoking your second program, \file{queryIndex.py}.
+invoking your second program, \file{queryIndex}.
+This program will load the index
+and then accept queries from the standard input,
+each separated by a newline character,
+until the input is closed (e.g., by ``CTRL+D'' or EOF).
+If the given query is the anagram of a word in the dictionary,
+then your program should write on the standard output
+the list of all matching words, separated by ``\code{$|$}''.
+If no match is found, it should output a blank line.
+As before, the number of lines of \file{myAnagrams.txt}
+should be the same as of \file{myQueries.txt}.
+
+\subsection{Example}
+Consider the dictionary file \file{myDictionary.txt} in Figure~\ref{fig:myDictionary}.
+Invoking:
+% \begin{verbatim}
+%      $ python createIndex.py < myDictionary.txt > myIndex.txt
+% \end{verbatim}
+\begin{verbatim}
+     $ ./createIndex < myDictionary.txt > myIndex.txt
+\end{verbatim}
+should produce the index file \file{myIndex.txt}
+as in Figure~\ref{fig:myIndex}
+(note the leading spaces):
+\begin{figure}[ht]
+    \begin{minipage}[b]{0.45\linewidth}
+        \VerbatimInput{dic.txt}
+        \caption{\file{myDictionary.txt}}
+        \label{fig:myDictionary}
+    \end{minipage}
+\hspace{1cm}
+    \begin{minipage}[b]{0.45\linewidth}
+        \VerbatimInput{ind.txt}
+        \caption{\file{myIndex.txt}}
+        \label{fig:myIndex}
+    \end{minipage}
+\end{figure}
+
+If we submit the sample queries of
+file \file{myQueries.txt} as in Figure~\ref{fig:myQueries},
+by invoking:
+% \begin{verbatim}
+%     $ python queryIndex.py myIndex.txt < myQueries.txt > myAnagrams.txt
+% \end{verbatim}
+\begin{verbatim}
+    $ ./queryIndex myIndex.txt < myQueries.txt > myAnagrams.txt
+\end{verbatim}
+we should get the anagrams file \file{myAnagrams.txt} listed
+in Figure~\ref{fig:myAnagrams}.
+\begin{figure}[ht]
+    \begin{minipage}[b]{0.45\linewidth}
+        \VerbatimInput{que.txt}
+        \caption{\file{myQueries.txt}}
+        \label{fig:myQueries}
+    \end{minipage}
+\hspace{1cm}
+    \begin{minipage}[b]{0.45\linewidth}
+        \VerbatimInput{ana.txt}
+        \caption{\file{myAnagrams.txt}}
+        \label{fig:myAnagrams}
+    \end{minipage}
+\end{figure}
+
+% \newpage
+\section{Data}
+\label{data}
+
+For this assignment you will need the following files located in
+\url{/course/cs158/data/warmup/} :
+\begin{itemize}
+	\item \url{smallDictionary.txt} : a small dictionary for quick testing;
+	\item \url{smallQueries.txt} : sample queries for the small dictionary;
+	\item \url{smallAnagrams.txt} : expected result for the above queries;
+	\item \url{largeDictionary.txt} : a full dictionary;
+	\item \url{largeQueries.txt} : sample queries for the large dictionary;
+	\item \url{largeAnagrams.txt} : expected result for the above queries;
+	\item \url{createIndex.sh} : sample Bash script to invoke your \file{createIndex} program;
+	\item \url{queryIndex.sh} : sample Bash script to invoke your \file{queryIndex} program;
+	\item \url{readme.txt} : a plain text file you should fill in with your information.
+\end{itemize}
+
+
+\section{Collaboration Policy}
+\label{collab}
+
+% You can work on this warm-up assignment and
+% on the Course Project in pairs.
+% You should work on all the programming assignments
+% with the same team-mate,
+% and only one submission per team is required,
+% unless explicitly noted.
+% \emph{We strongly suggest you to consider working with another student.}
+
+% Please check the web page of the Course for links to online Python resources.
+
+You should work on this warm-up assignment individually.
+Please use \url{http://groups.google.com/group/brown-cs158-spring2011} or
+email \texttt{cs158tas at cs dot brown dot edu} if you have any questions.
+
+
+\section{Submission}
+\label{submission}
+Please copy all the files mentioned below
+into a separate directory, \code{cd} there, and
+run the handin script from that directory.
+Be aware that since the handin script copies recursively
+all the files from the directory it is executed from,
+if you run the script from, say, your home directory,
+it will handin all your files and directories!
+
+Also, you can name any files you do not want to include
+as \file{.dat} or \file{.out} files. These files will be excluded
+from your handin, so make sure that nothing that your handin
+depends on uses these files.
+
+The directory from where you run the handin script should contain only:
+\begin{itemize}
+% 	\item Any Python source code (\file{.py}) you wrote.
+	\item Any source code you wrote.
+	\item The two Bash scripts \file{createIndex.sh} and \file{queryIndex.sh},
+		modified to call your programs.
+	\item The plain text file \file{readme.txt}, filled in
+        with the required information.
+\end{itemize}
+
+Please submit the above files using the following command:
+\begin{verbatim}
+    $ /course/cs158/bin/cs158-handin warmup
+\end{verbatim}
+
+
+\section{Evaluation}
+\label{evaluation}
+
+We will run your programs 
+on a CS machine, using
+\file{largeDictionary.txt} and
+\file{largeQueries.txt}.
+We will verify that your programs produce
+the \emph{exact} expected output,
+by running the command line
+utility \file{diff}.
+Therefore, please be sure to submit
+properly working code.
+In particular, check for unwanted prompts,
+debugging messages, newlines
+that you might have forgotten in your code.
+\emph{It is your responsibility to make sure that
+your code runs on the department machines,
+satisfies naming and usage criteria described in this document,
+and produces the expected output.}
+
+This is an easy warm-up assignment,
+we expect that you will be able to complete it
+reasonably quickly.
+% even if you do not have previous Python experience.
+The programs you have to code are simple,
+so if you find yourself coding a very complex program,
+you have probably taken a wrong approach.
+
+We will not grade the quality
+or the speed of your code for this assignment,
+however we expect that
+(a)  it will run (no syntax or runtime errors are allowed);
+and (b) it will produce
+the \emph{exact} expected output in a \emph{reasonable} time:
+less than $5$ minutes to create/load the full index
+and less than $10$ seconds to answer each query.
+
+If your code adheres to this specification,
+you will get full credit.
+We will penalize you if your code
+produces an incorrect output
+and/or it does not fully respect this specification.
+The penalization will be proportional
+to the seriousness of the problem.
+
+\emph{You should submit this assignment
+in order to be registered
+in the evaluation system of the Course.}
+
+\vspace{1cm}
+\center{\large{Have fun!}}
+
+\end{document}

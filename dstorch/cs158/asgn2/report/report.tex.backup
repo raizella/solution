@@ -1,0 +1,174 @@
+\documentclass[11pt]{article}
+
+\usepackage{fullpage}
+
+\parskip 7pt
+\parindent 0pt
+
+\title{Project Part 2}
+\author{David Storch and Matt Mahoney \\
+	logins: dstorch, mjmahone \\
+	Team: Pugnacious Parsers}
+\date{4 March 2011}
+
+\begin{document}
+
+\maketitle
+
+\section{Question 1}
+
+The overarching strategy in creating our inverted index was to reduce the
+processing required at query time for top $K$ retrieval. To this end, we pre-computed
+the inverse document frequency $idf_{t}$ for each term and the Euclidean normalization $\sqrt{\sum_{t'\in T_{d}} tf^{2}_{t', d}}$ for each document.
+
+Our inverted index file first contains a term-position pair
+for each term in the lexicon (written one per line to the beginning of the file), where the ``position'' is the number of the byte in the index at which the
+corresponding postings list begins---allowing us to read postings lists from the disk only as they
+are needed. The term-position pairs must be read into into memory at query time in order to build the b-tree.
+Next, the index contains docID-Euclidian normalization factor pairs written one per line.
+
+Lastly, the index contains a postings list for each term of the form:
+\begin{verbatim}
+<idf of term> : <docID> <position> <position> ... : <docID> <position> <position> ...
+\end{verbatim}
+
+Our inverted index is 245,866,104 bytes, which is 72.4\% the size of the original collection.
+
+\section{Question 2}
+
+Our createIndex program's time complexity is $O(n)$, where $n$ is the size of the original collection file (i.e.,
+the total number of words in the entire collection, counting repititions).
+It makes one linear pass to parse the XML, another pass to construct the inverted index (i.e., each postings list), 
+another pass to compute the Euclidean normalization factors, and a final pass to write to the output file. The space complexity
+is also $O(n)$. Under the assumption that the number of terms $t$ in the lexicon and the number of documents
+$d$ in the collection satisfy $t << n$ and $d << n$, we can ignore everything in the index file other than
+the postings lists. We get $O(n)$ because there is one positional entry for word in the original file; the docIDs in the postings
+lists do not contribute to the space complexity because the number of docIDs which we write out is less than or equal to $n$.
+We can ignore the $idf_{t}$ values, because there are $O(t)$ such values and $t << n$.
+
+
+\section{Question 3}
+
+When \texttt{queryIndex} is invoked, it reads from the beginning of the inverted index file in order
+to construct the b-tree of query terms, and to load the normalization factors for each docID.
+For a given query with a set $Q$ of query terms, we read a single postings list from the inverted
+index for each $q \in Q$. For example, processing the free text query \texttt{gargantuan proportions}
+requires us to read only two postings lists from the index file. These postings lists are cached and used throughout the remainder of the
+querying and ranking process in order to avoid repeated disk reads.
+
+\section{Question 4}
+
+\subsection{Permuterm b-tree}
+
+We use a b-tree to store all the permuterms of every term in the lexicon---\texttt{tree} is stored four times in the
+b-tree as \texttt{\$tree}, \texttt{t\$ree}, \texttt{tr\$ee}, and \texttt{tre\$e}.
+
+\subsection{Answering wildcard queries}
+
+We decompose the wildcard query, which may
+have an arbitrary number of wildcards, into a series of single wildcard queries. To answer a single
+wildcard query, the asterisk is rotated to the end of the word, which gives us the range of keys from the permuterm b-tree.
+
+\subsection{Wildcard query time complexity}
+
+Extracting the range from the b-tree requires us to locate a subtree, and then iterate on the elements of that subtree. The cost of locating the subtree is bounded
+by the depth of the b-tree, which is $O(\log t)$ if $t$ is the number of terms in the lexicon. Iterating
+on this subtree is linear in $m$, the number of matching b-tree terms which belong
+in the range (i.e. the size of the subtree). Hence the cost of extracting the range is $O(m + \log t)$.
+
+For each of the $m$ matches in the range, we must perform a one-word query. Let the cost of a one-word query
+be $k$. In order to answer a one-word query, we just read the corresponding postings list from the disk---however,
+the cost of the disk read operation increases with posting list length, so $k$ depends on the frequency of the term in the
+lexicon. The total time complexity for a single wildcard query is $O(km + \log t)$.
+
+The set of documents that matches a wildcard query with two asterisks, in the worst case, is found as the
+intersection of two wildcard queries with a single asterisk. 
+
+\section{Question 5}
+
+\subsection{One-word queries}
+
+The query \texttt{tree} provides an example of an input for which the top $K$ ranking is not
+particularly good. All of the results are related to trees, but the article entitled ``Tree'' is
+the third hit, and some more obscure articles made their way into the top 10, including ``Unrooted
+binary tree'' as the 10th hit. The term ``tree'' appears extremely frequently in the collection, which
+means that there are lots of relevant hits, and our algorithm isn't subtle enough to determine which
+is the \textit{most} relevant.
+
+The query \texttt{unrooted}, on the other hand, produced much better results. The first hit was
+``Unrooted binary tree'', and subsequent hits described types of unrooted trees (such as phylogenetic
+trees). The term ``unrooted'' is more obscure, so it is more likely that the limited number of relevant
+hits will be what the end-user is looking for.
+
+\subsection{Free-text queries}
+
+The query \texttt{red-black tree} produces as its first two hits the articles ``Red-black'' and
+``Red-black tree''. The reason that ``Red-black'' is ranked higher than the article that the user
+is probably looking for is because ``Red-black'' is a short stub article---the results are biased
+by length normalization. Also, many of the hits are articles which contain ``tree'' but not
+``red'' or ``black''. These articles repeat the term ``tree'' over and over again, which makes
+them highly weighted, despite the fact that they don't contain all the query terms. The query
+\texttt{red AND black AND tree} produces better results for this reason.
+
+One free-text query which worked well was \texttt{programming languages}. The top articles
+for this query were ``List of programming languages by category'',  ``List of object-oriented programming languages'',
+and ``List of programming languages''. Note again that the short articles which are just lists are stubs
+are favored due to length normalization.
+
+An example of a tree-text query which works poorly is \texttt{computer monitor}. The top hits
+are ``System Monitoring'' and ``LOBSTER'' (an internet traffic monitoring infrastructure)---probably
+not what the user is looking for. The problem here is that the articles are retrieved based on their
+use of the keyword ``monitor'', but there is no semantic analysis to distinguish the two different
+meanings of the term.
+
+\subsection{Phrase queries}
+
+An example of a phrase query that was not ranked well is \texttt{``computer science''}---
+the article entitled ``Computer science'' was ranked sixth, behind less relevant articles
+such as ``Computer Science Tripos'' and ``e-Science''. In large part, this is likely because
+we fail to treat article titles differently from the articles themselves. The query matches
+an article title verbatim, but our search engine does not distinguish title from text.
+
+A much more precise and less widely used term serves as a better phrase query. For instance,
+the phrase query \texttt{extracellular matrix} indeed returns the few articles on biology
+in the collection which refer to the matrix of proteins surrounding the cell.
+
+\subsection{Boolean queries}
+
+The boolean query \texttt{java AND garbage} correctly identifies articles about garbage collection,
+and Java's particular mark-sweep implementation of garbage collection!
+
+The query \texttt{memory AND (Neuroscience OR brain)} correctly identified neuroscience articles
+rather than articles about computer memory.
+
+The query \texttt{underwater AND machine} produces relevant hits---for example, an article
+about the underwater research vessel SPURV. However, it fails to produce perhaps the most
+obvious result, that being the article ``Submarine''. Although a submarine is an underwater machine,
+this article does not make heavy use of this terminology. (Instead it uses terms like ``watercraft''
+and ``submersible''.)
+
+
+\subsection{Wildcard queries}
+
+\subsection{Wildcard phrase queries}
+
+
+\section{Extra Features}
+
+We found that some extra features arose naturally from our design, so we went
+ahead and implemented them.
+
+\subsection{Unlimited wildcards}
+
+Our code supports an unlimited number of wildcards in a given query term. We also
+do not have the restriction that consecutive wildcards are illegal. Thus,
+\texttt{recur*si*ve*poly*} is an example of a valid one-word wildcard query, and
+\texttt{``binar** se*arch tre*''} is a valid wildcard phrase query.
+
+\subsection{Boolean and free text wildcard queries}
+
+Our querying program allows boolean wildcard queries such as \texttt{(re* AND purpl*) OR (blu* AND *gree*))}, 
+and free text wildcard queries such as \texttt{re* gree* *blu*)}.
+
+
+\end{document}

@@ -1,0 +1,46 @@
+
+four machines for half an hour
+
+option #1:
+languages that sit on top
+--pig latin
+--hive
+
+option #2:
+amazon elastic map-reduce
+--can upload a jar that sits
+  on top of the framework
+--pre-configured cluster
+
+"hands dirty writing at least one
+ map reduce jobs"
+
+I should probably be the one
+drafting the assingment handout.
+
+Simple index creation parallelized.
+
+Two ways to manage:
+  --every student has a promotion code
+  --or we are liable for extra charges
+
+Point to a simple Amazon map-reduce tutorial
+rather than writing our own (there are some
+out there).
+
+Analytics on top of the MapReduce---
+   -How many rounds did it take?
+   -How much data moved in each round?
+   -Eli thinks there's not actually too
+    much work involved in kicking off a hadoop job
+
+Twitter data set.
+Three simple tasks based on inverted index
+   -word count
+   -figuring out who's tweeting the most, for example
+    "5 top users tweeting about Britney Spears"
+   -most frequent hash tag
+   -hash tags only used once
+
+
+

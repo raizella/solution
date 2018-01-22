@@ -1,0 +1,70 @@
+The term vocabulary and postings lists
+
+2.1
+---
+
+p.19 -- dealing with document encoding formats;
+this is not the topic of this book
+
+p.20 -- you must choose the unit that you will
+consider to be "documents"; this is a precision
+versus recall tradeoff called "index granularity"
+
+2.2
+---
+
+p.22 -- language identification heuristics are
+useful when doing tokenization
+
+p.25 -- stop words: the exclusion of common
+dictionary terms; can be determined by
+sorting terms by collection frequency (the total
+number of times the term appears in the corpus)
+
+p.26 -- web search engines generally do not use
+stop lists
+
+p.27 -- equivalence classing versus "maintaining
+relations between unnormalized tokens"
+
+p.28 -- reducing all letters to lower case
+is a common strategy 
+
+p.30 -- stemming and lemmatization
+
+p.31 -- Porter's algorithm is the most common
+stemming algorithm for English
+
+2.3 -- Speeding up using skip pointers
+--------------------------------------
+
+See the section itself for more.
+
+2.4 -- Positional postings and phrase queries
+---------------------------------------------
+
+p.36 -- biword indices are one way to handle phrase queries
+
+p.37 -- if a biword index is extended to contain more than
+two terms per dictionary entry, it is generally referred
+to as a "phrase index"
+
+p.38 -- positional indices store each position in a document
+at which a term appears
+
+p.39 -- an algorithm that allows you whether to determine
+whether two words appear in a document within k words 
+of each other
+
+p.40 -- using a positional index increases the time complexity
+to be on the order of the number of tokens in the collection,
+whereas before it was on the order of the number of documents
+in the collection
+-after compression, a positional index is between 1/3 to 1/2
+of the size of the entire collection
+
+pp.40-41 -- it's generally best to combine two schemes; a biword
+or phrase index for common phrases (i.e., "Michael Jackson") and
+a positional index otherwise
+
+

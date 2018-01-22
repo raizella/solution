@@ -1,0 +1,10 @@
+The average number of features for feature set 1 is 87.1478 features per 
+document. For feature set 2, there is an average of 47.95 features per 
+document. In terms of distribution, feature set 1 is nicely distributed, 
+with a large number of features appearing in only one document (~1400),
+and fewer (by a logarithmic scale) features appearing in more documents.
+
+For feature set 2, the distribution is fairly flat, with many features 
+having between 800 and 5000 documents they appear in, but as there are
+fewer features in feature set 2, it makes sense that the number of documents
+with any specific frequency would be rather low.
