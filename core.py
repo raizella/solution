@@ -162,7 +162,7 @@ class PhraseQuery(Query):
             curr_indices = temp_next
         return set(curr_indices.keys())
 
-    def merge_lists(self, curr_indices : List, next_indices : List) -> List:
+    def merge_lists(self, curr_indices: List, next_indices: List) -> List:
         to_return = []
         for i in range(len(curr_indices)):
             for j in range(len(next_indices)):
