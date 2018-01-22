@@ -15,6 +15,7 @@ from nltk.stem import PorterStemmer
 
 from boolparser import bool_expr_ast
 
+
 class Analyzer:
     """Filtering stopwords and stemming"""
 
@@ -73,7 +74,7 @@ class Index:
         while s.find('<page>') > -1:
             start_i = s.find('<id>')
             end_i = s.find('</id>')
-            doc_id = int(s[start_i + 4:end_i])
+            doc_id = s[start_i + 4:end_i]
 
             start_i = s.find('<title>')
             end_i = s.find('</title')
@@ -106,7 +107,7 @@ class Index:
     def search(self, query_string: str) -> List[int]:
         """Searches the index for the file"""
         query = QueryFactory.create(query_string)
-        return sorted(query.match(self))
+        return sorted(query.match(self), key=int)
         # TODO (ISSUE 5): TF-IDF ranking
         # Scorer().score(results) ...
 
@@ -160,7 +161,6 @@ class BooleanQuery(Query):
 
         return self.helper(parsed_query, index)
 
-
     def helper(self, parsed_query, index):
         if isinstance(parsed_query, str):
             return OneWordQuery(parsed_query).match(index)
@@ -170,7 +170,7 @@ class BooleanQuery(Query):
         matches = [self.helper(operand, index) for operand in operands]
         if operator == 'OR':
             return functools.reduce(lambda s, t: s.union(t), matches)
-        else: # AND
+        else:  # AND
             return functools.reduce(lambda s, t: s.intersection(t), matches)
 
 
@@ -201,25 +201,28 @@ class Scorer:
     pass
 
 
-if __name__ == '__main__':
-    # TODO (Issue 6): Test suite
-
-
+def main():
     with open('data/part1/stopWords.dat') as f:
-        stopwords = [line.rstrip('\n') for line in f]
-    index = Index(stopwords)
+        test_stopwords = [line.rstrip('\n') for line in f]
+    test_index = Index(test_stopwords)
     print('Loading Index')
-    #index.read("testIndex.dat", "testTitles.dat") #Uncomment this call to read and comment the call to parse to read
-    index.parse('data/part1/testCollection.dat')
+    # Uncomment this call to read and comment the call to parse to read
+    test_index.read('testIndex.dat', 'testTitles.dat')
+    # test_index.parse('data/part1/testCollection.dat')
     print('Index Loaded')
     print('Saving index')
-    index.write('testIndex.dat', 'testTitles.dat')
+    test_index.write('testIndex.dat', 'testTitles.dat')
     print('Index Saved')
     print('Searching Index')
-    print(index.search('Padua'))
-    print(index.search('variable naming conventions'))
-    # print(index.search('(password OR secret) AND (login OR account)'))
-    # with open('data/part1/testQueries.dat') as f:
-    #     for line in f:
-    #         print(line.rstrip('\n'))
-    #         print(index.query(line.rstrip('\n')))
+    with open('data/part1/testQueries.dat') as query_file:
+        with open('data/part1/testExpected.dat') as result_file:
+            for query, result in zip(query_file, result_file):
+                print(query.rstrip('\n'))
+                try:
+                    print('Actual:', ' '.join(test_index.search(query.rstrip('\n'))))
+                    print('Expected:', result.rstrip('\n'))
+                except NotImplementedError:
+                    print('Not implemented yet!')
+
+if __name__ == '__main__':
+    main()
