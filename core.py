@@ -149,7 +149,26 @@ class FreeTextQuery(OneWordQuery):
 class PhraseQuery(Query):
     def match(self, index: Index) -> Set[int]:
         # TODO (Issue #3)
-        raise NotImplementedError
+        query_terms = index.analyzer.get_terms(self.query_string)
+        curr_indices = index[query_terms[0]]
+        for i in range(1, len(query_terms)):
+            next_indices = index[query_terms[i]]
+            temp_next = dict()
+            matches = set(curr_indices.keys()).intersection(set(next_indices.keys()))
+            for doc_id in matches:
+                doc_id_list = self.merge_lists(curr_indices[doc_id], next_indices[doc_id])
+                if len(doc_id_list) > 0:
+                    temp_next[doc_id] = doc_id_list
+            curr_indices = temp_next
+        return set(curr_indices.keys())
+
+    def merge_lists(self, curr_indices : List, next_indices : List) -> List:
+        to_return = []
+        for i in range(len(curr_indices)):
+            for j in range(len(next_indices)):
+                if curr_indices[i] + 1 == next_indices[j]:
+                    to_return.append(next_indices[j])
+        return to_return
 
 
 class BooleanQuery(Query):
@@ -207,8 +226,8 @@ def main():
     test_index = Index(test_stopwords)
     print('Loading Index')
     # Uncomment this call to read and comment the call to parse to read
-    test_index.read('testIndex.dat', 'testTitles.dat')
-    # test_index.parse('data/part1/testCollection.dat')
+    # test_index.read('testIndex.dat', 'testTitles.dat')
+    test_index.parse('data/part1/testCollection.dat')
     print('Index Loaded')
     print('Saving index')
     test_index.write('testIndex.dat', 'testTitles.dat')
