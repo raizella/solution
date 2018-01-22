@@ -158,16 +158,16 @@ class BooleanQuery(Query):
         # A single word may be split into multiple terms!
         parsed_query = bool_expr_ast(self.query_string)
 
-        return self.helper(parsed_query)
+        return self.helper(parsed_query, index)
 
 
-    def helper(self, parsed_query):
+    def helper(self, parsed_query, index):
         if isinstance(parsed_query, str):
             return OneWordQuery(parsed_query).match(index)
 
         operator, operands = parsed_query
 
-        matches = [self.helper(operand) for operand in operands]
+        matches = [self.helper(operand, index) for operand in operands]
         if operator == 'OR':
             return functools.reduce(lambda s, t: s.union(t), matches)
         else: # AND
