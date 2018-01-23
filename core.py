@@ -168,7 +168,6 @@ class PhraseQuery(Query):
         return set(curr_indices.keys())
 
     def merge_lists(self, curr_indices: List, next_indices: List) -> List:
-        ''' helper function for match'''
         to_return = []
         for curr_index in curr_indices:
             for next_index in next_indices:
@@ -235,8 +234,8 @@ def main():
     test_index = Index(test_stopwords)
     print('Loading Index')
     # Uncomment this call to read and comment the call to parse to read
-    test_index.read('testIndex.dat', 'testTitles.dat')
-    # test_index.parse('data/part1/testCollection.dat')
+    # test_index.read('testIndex.dat', 'testTitles.dat')
+    test_index.parse('data/part1/testCollection.dat')
     print('Index Loaded')
     print('Saving index')
     test_index.write('testIndex.dat', 'testTitles.dat')
